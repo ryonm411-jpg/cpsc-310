@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What Must Agree</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<nav class="crumbs">CPSC 310 midterm prep · Lesson 1 · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/coupling-cohesion.html">Coupling &amp; cohesion sheet</a></nav>
+
+<h1>What must agree with what?</h1>
+<p class="subtitle">Naming the coupling behind an expensive change: connascence, degree, and locality</p>
+
+<div class="goal"><strong>The win.</strong> Given code you have never seen, you can say <em>which two pieces must agree</em>, name the kind of agreement (its connascence), say whether the compiler would catch a mismatch, and explain how degree and locality make a change more expensive. Almost every midterm question about coupling starts with this step.</div>
+
+<h2>The one question</h2>
+<p>The course asks one question at every scale: <em>what will the next change cost, and why?</em> When you want to explain the cost of a change, start by asking <strong>which two places must stay in agreement</strong>. If one changes, the other has to change too. That relationship is <dfn>coupling</dfn>. The reader measures it three ways<a class="cite" href="#s1">[1]</a>:</p>
+<table>
+<tr><th>Attribute</th><th>Question to ask</th><th>Makes a change cost more because…</th></tr>
+<tr><td><b>Degree</b></td><td>How many connections?</td><td>more places to visit, read, and edit</td></tr>
+<tr><td><b>Locality</b></td><td>How far apart are they?</td><td>far-away places are harder to find, and easier to forget</td></tr>
+<tr><td><b>Strength</b> (connascence)</td><td>What exactly must they agree on?</td><td>stronger agreements are harder to keep in sync</td></tr>
+</table>
+
+<h2>Five kinds of agreement</h2>
+<p>The reader lists five types of <dfn>connascence</dfn> (from the Latin for "born together"). They're shown here in the order the reader gives them. Treat the later ones as stronger<a class="cite" href="#s1">[1]</a>:</p>
+<table>
+<tr><th>Connascence of…</th><th>Must agree on</th><th>Tiny example</th></tr>
+<tr><td>Name</td><td>what something is called</td><td>rename <code>findUserById</code> → every call site changes</td></tr>
+<tr><td>Type</td><td>the shape of the data</td><td>add a required field → every caller must supply it</td></tr>
+<tr><td>Value</td><td>a specific literal</td><td><code>"pending"</code> hard-coded in validation, reports, and UI</td></tr>
+<tr><td>Position</td><td>argument order</td><td><code>createInvoice(id, start, end, total, tax)</code>, where a caller swaps total and tax</td></tr>
+<tr><td>Algorithm</td><td>a computation done the same way</td><td>one class encrypts, and another must decrypt with the same algorithm</td></tr>
+</table>
+
+<div class="note"><b>Explicit or implicit?</b> The most dangerous coupling is the kind the compiler can't see. If you rename a function, TypeScript flags every broken call, so that coupling is <em>explicit</em>. If you swap two <code>number</code> arguments, or forget one copy of <code>"pending"</code>, everything still compiles, and the mistake <em>fails silently at runtime</em>. That coupling is <em>implicit</em><a class="cite" href="#s1">[1]</a>. On the exam, saying whether a coupling is explicit or implicit is often what separates a full-marks answer from a partial one.</div>
+
+<p>Most pairs of code agree on several things at once. In the reader's example below, <code>inverseOperation</code> depends on <code>mysteriousOperation</code>'s name <em>and</em> its argument order. Name the <strong>strongest</strong> connascence, because it's the most significant one<a class="cite" href="#s1">[1]</a>:</p>
+<pre><code>function mysteriousOperation(x: number, y: number) { return x - y; }
+function inverseOperation(x: number, y: number) { return mysteriousOperation(x, y); }
+// Name + Position. Position is strongest, and it's implicit: both are numbers.</code></pre>
+
+<p>Here's how this connects to your project. D1 asked you to describe <em>"what had to agree with what"</em> when you added <code>campus</code>. That question asks you to find the connascence. Request 1 forced changes in parsing, PUT, search, tests, and <code>openapi.yml</code>: a <b>high-degree, low-locality</b> change. Request 2 was <em>one method</em>. The difference in effort between them is what this lesson helps you explain.</p>
+
+<hr>
+
+<h2>Practice: name it</h2>
+<p>Answer from memory, and commit before you click. Each question locks after your first answer. <span class="score"></span></p>
+
+<div class="quiz" data-answer="Value">
+<p class="q">Two files check <code>if (order.status === 3)</code>, where <code>3</code> means "shipped". Product wants a new status inserted before "shipped", so "shipped" becomes <code>4</code>. What is the connascence between the two files?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why">This is <b>Value</b>. Both files must agree on a specific literal. A magic number is the reader's special case of connascence of value. It's implicit: if you miss one file, it still compiles.</div>
+</div>
+
+<div class="quiz" data-answer="Position">
+<p class="q"><code>sendEmail(to: string, from: string, subject: string, body: string)</code> is called from 14 places. Which kind of connascence makes a careless edit at one call site most dangerous?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why">This is <b>Position</b>. All four parameters are <code>string</code>, so swapping <code>to</code> and <code>from</code> compiles fine and sends mail the wrong way. It's the reader's <code>createInvoice</code> case. A degree of 14 means 14 chances to get it wrong.</div>
+</div>
+
+<div class="quiz" data-answer="Algorithm">
+<p class="q"><code>Signup</code> stores <code>sha256(password + "s4lt")</code>. In another module, <code>Login</code> recomputes <code>sha256(password + "s4lt")</code> and compares the two. What is the strongest connascence?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why">This is <b>Algorithm</b>. Both modules must do the computation the same way. (They also share the value <code>"s4lt"</code>, but the strongest bond is the duplicated algorithm, and that's the one to name.) Changing the hash in one module silently locks every user out.</div>
+</div>
+
+<div class="quiz" data-answer="Type">
+<p class="q"><code>getCoords()</code> returns <code>{ lat, lon }</code>. A caller reads <code>result.lat</code>. The team changes the return value to <code>{ latitude, longitude }</code>. What were the caller and callee agreeing on?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why">This is <b>Type</b>: the <em>shape of the data</em>. Field names are part of the shape here. With TypeScript types on the return value, this coupling is explicit. If the result is passed around as <code>any</code>, it becomes implicit.</div>
+</div>
+
+<div class="quiz" data-answer="Algorithm">
+<p class="q">The dataset parser builds each building's id as <code>shortname + "_" + number</code>. The PUT handler rebuilds the id the same way to find the building on disk. What is the connascence?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why">This is <b>Algorithm</b>. Two places compute something "the same way". If someone changes the separator to <code>"-"</code> in the parser only, PUT silently stops finding buildings. You can weaken it to <b>Name</b> by extracting a <code>buildingId(shortname, number)</code> function that both places call.</div>
+</div>
+
+<div class="quiz" data-answer="Weaker">
+<p class="q">You replace the duplicated <code>"pending"</code> literals with a <code>STATUS_PENDING</code> constant that every module imports. Is the coupling between those modules now stronger or weaker?</p>
+<div class="opts"><button class="opt">Stronger</button><button class="opt">Weaker</button><button class="opt">Unchanged</button><button class="opt">Removed</button></div>
+<div class="why">The coupling is <b>Weaker</b>. Agreement on a value becomes agreement on a <em>name</em>, and the compiler checks names (explicit). The coupling isn't <em>removed</em>, though: the modules still depend on the constant. The goal is loose coupling, not zero coupling.</div>
+</div>
+
+<div class="quiz" data-answer="Degree and locality">
+<p class="q"><code>validateKey()</code> is called in 20 places across 9 files, and its signature must change. Which attributes make this change expensive?</p>
+<div class="opts"><button class="opt">Degree and locality</button><button class="opt">Cohesion and order</button><button class="opt">Name and algorithm</button><button class="opt">Value and position</button></div>
+<div class="why">The answer is <b>Degree and locality</b>. There are 20 connections (degree), spread across 9 files (locality). This is the reader's own example: you visit, read, and edit each site<a class="cite" href="#s1">[1]</a>.</div>
+</div>
+
+<hr>
+
+<h2>Exam-style: justify it</h2>
+<p>This is the kind of question the midterm asks: read unfamiliar code, say what's wrong, and argue for a change. Write your answer <em>before</em> you look at the rubric.</p>
+<span class="file">QueryValidator.ts</span>
+<pre><code>const VALID_KEYS = ["id", "name", "address", "lat", "lon"];
+export function isValidKey(k: string): boolean { return VALID_KEYS.includes(k); }</code></pre>
+<span class="file">QueryEngine.ts</span>
+<pre><code>function getField(b: Building, k: string): string | number {
+  switch (k) {
+    case "id": return b.id;       case "name": return b.name;
+    case "address": return b.address;
+    case "lat": return b.lat;     case "lon": return b.lon;
+  }
+  throw new Error("unreachable");
+}</code></pre>
+<span class="file">openapi.yml</span>
+<pre><code>key: { type: string, enum: [id, name, address, lat, lon] }</code></pre>
+
+<p><b>Q.</b> A teammate adds a <code>campus</code> field to <code>Building</code> and updates <code>QueryValidator.ts</code> only. (a) What goes wrong, and when? (b) Characterize the coupling among these three files using the course's vocabulary. (c) Propose one change that weakens it, and state one cost of that change.</p>
+
+<div class="free" data-key="lesson1-fr">
+<textarea placeholder="Write your answer here. Bullets are fine."></textarea>
+<button class="reveal">Compare with rubric</button>
+<div class="rubric">
+<p><b>A full-marks answer…</b></p>
+<label><input type="checkbox"> (a) says it <b>compiles and passes validation</b>, then <b>fails at runtime</b>: <code>getField</code> throws for <code>"campus"</code>. The docs also don't list it.</label>
+<label><input type="checkbox"> (b) names the connascence as <b>Value</b>: three places must agree on the same set of string literals.</label>
+<label><input type="checkbox"> (b) says it is <b>implicit</b>, because nothing links the three lists, so the compiler can't help.</label>
+<label><input type="checkbox"> (b) mentions <b>degree</b> (3 places) and <b>locality</b> (separate files, and even a separate non-code artifact).</label>
+<label><input type="checkbox"> (c) proposes a <b>single source of truth</b>. For example, derive valid keys from one exported <code>BUILDING_KEYS</code>/<code>keyof Building</code> and look fields up with <code>b[k]</code>. Coupling moves from Value to <b>Name/Type</b>, which is explicit.</label>
+<label><input type="checkbox"> (c) states a real <b>cost</b>. For example, the refactor takes time and carries risk (run the tests before and after), <code>openapi.yml</code> still needs a manual update unless you generate it, and a generic <code>b[k]</code> loses per-field special handling.</label>
+</div>
+</div>
+<p class="sidenote">Then paste your answer into our chat. I'll mark it the way a TA would and tell you which rubric line you'd lose marks on.</p>
+
+<footer>
+<p><b>Primary source:</b> read the course reader chapter <em>Change Difficulty</em> (coupling and cohesion) in full. It's ~10 minutes, and it's the source of truth for the exam's wording. Your copy is saved at <code>sources/reader-change-difficulty.md</code>. For more worked examples of each connascence type, see <a href="https://connascence.io/">connascence.io</a>, which the reader cites as its basis (note that it calls <em>Value</em> "Meaning").</p>
+<p><b>Stuck or unsure?</b> Ask me any follow-up questions in the chat. "Why isn't #4 Name?" is exactly the kind of question I'm here for.</p>
+<p><b>Next:</b> Lesson 2 covers cohesion (data, logic, and order bindings). Come back to this page's quiz in 2–3 days without rereading it first. That gap is what makes the material stick.</p>
+<p id="s1" class="sidenote">[1] CPSC 310 Course Reader, <em>Software Construction › Analytical Code Design › Change Difficulty</em>.</p>
+</footer>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

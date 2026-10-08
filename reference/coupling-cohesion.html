@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coupling and Cohesion</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<nav class="crumbs">CPSC 310 reference · <a href="glossary.html">Glossary</a> · <a href="../lessons/0001-what-must-agree.html">Lesson 1</a></nav>
+<h1>Coupling &amp; cohesion</h1>
+<p class="subtitle">One-page sheet · source: Course Reader, <em>Change Difficulty</em> and <em>Refactoring</em></p>
+
+<h2>Coupling: between elements</h2>
+<table>
+<tr><th>Attribute</th><th>Asks</th><th>Reduce it by</th></tr>
+<tr><td>Degree</td><td>How many connections?</td><td>fewer shared interfaces</td></tr>
+<tr><td>Locality</td><td>How far apart?</td><td>moving shared code together / into a common library</td></tr>
+<tr><td>Strength (connascence)</td><td>What must agree?</td><td>moving to a weaker connascence (e.g. Algorithm → Type)</td></tr>
+</table>
+
+<h3>Connascence (in the reader's order; later = stronger)</h3>
+<table>
+<tr><th>Type</th><th>Must agree on</th><th>Typical fix</th></tr>
+<tr><td>Name</td><td>what it's called</td><td>(already weak; IDE rename)</td></tr>
+<tr><td>Type</td><td>shape of the data</td><td>shared interface / type</td></tr>
+<tr><td>Value</td><td>a specific literal / magic number</td><td>replace literal with named constant → Name</td></tr>
+<tr><td>Position</td><td>argument order</td><td>parameter object <code>{ total, tax }</code> → Name/Type</td></tr>
+<tr><td>Algorithm</td><td>computation done the same way</td><td>extract one shared function/strategy → Name/Type</td></tr>
+</table>
+<p><b>Explicit</b>: the compiler catches a mismatch. <b>Implicit</b>: it fails silently at runtime, which is the bigger risk. When several kinds of connascence apply, <b>name the strongest</b>.</p>
+
+<h3>Cost vocabulary</h3>
+<p><b>Risk</b>: you miss an update to coupled code (worse when implicit). <b>Difficulty</b>: grows with degree × locality, because every site must be found, read, and edited.</p>
+
+<h2>Cohesion: within an element</h2>
+<p>How focused an element is on one complete task. Measured between pairs of lines, blocks, or methods by their <b>bindings</b>:</p>
+<table>
+<tr><th>Binding</th><th>The pair is related because…</th></tr>
+<tr><td>Data</td><td>one uses data produced by the other</td></tr>
+<tr><td>Logic</td><td>they run under the same condition / together</td></tr>
+<tr><td>Order</td><td>one must happen before the other</td></tr>
+</table>
+<p><b>Signal of low cohesion:</b> a field used by only a few of a class's methods. <b>Risk</b>: editing one task breaks another. <b>Difficulty</b>: you must read a lot of code to find where to change.</p>
+
+<h2>Refactoring</h2>
+<p>Restructure <b>without changing behaviour</b>. Process: identify the property to improve → run the tests (green) → refactor → run the tests (same results). <b>Rule of three</b>: refactor on the third duplicate. Common moves: Rename, Move, Extract method/class/interface, Pull up/Push down, Replace magic literal with constant, Replace inheritance with delegation. Every refactor is motivated by coupling, cohesion, or both.</p>
+
+<h2>Exam answer skeleton</h2>
+<ol>
+<li><b>What must agree with what</b> (name both locations).</li>
+<li><b>Connascence type</b>, the strongest one, and whether it's <b>explicit or implicit</b>.</li>
+<li><b>Degree and locality</b>, with counts and places.</li>
+<li><b>Consequence</b>: what breaks, and when (compile time or runtime).</li>
+<li><b>Fix</b>, and which weaker connascence it moves to.</li>
+<li><b>Cost</b> of the fix (time, risk, new abstraction, what still isn't covered).</li>
+</ol>
+</main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPSC 310 Glossary</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<nav class="crumbs">CPSC 310 reference · <a href="coupling-cohesion.html">Coupling &amp; cohesion sheet</a></nav>
+<h1>Glossary</h1>
+<p class="subtitle">These are the course's own terms. Use exactly these words on the exam. Grows with each lesson.</p>
+
+<table>
+<tr><th>Term</th><th>Meaning (course reader wording)</th></tr>
+<tr><td>Coupling</td><td>Strength of connections <em>between</em> program elements. Measured by degree, locality, and strength (connascence).</td></tr>
+<tr><td>Degree</td><td>How many connections there are between two groups of code.</td></tr>
+<tr><td>Locality</td><td>How far away the coupled groups are from each other.</td></tr>
+<tr><td>Connascence</td><td>Strength of a coupling: what two things must agree on. Types: Name, Type, Value, Position, Algorithm.</td></tr>
+<tr><td>Explicit / implicit coupling</td><td>Whether a mismatch is caught (e.g. by the compiler) or fails silently at runtime.</td></tr>
+<tr><td>Magic number</td><td>A special case of connascence of value with a numeric literal.</td></tr>
+<tr><td>Cohesion</td><td>How focused an element is on a single complete task (within an element).</td></tr>
+<tr><td>Binding</td><td>How a pair of code groupings is related: by data, logic, and/or order.</td></tr>
+<tr><td>Scattered change</td><td>One logical change requires edits in many places. A symptom of coupling.</td></tr>
+<tr><td>Tangling</td><td>Several concepts mixed in one element, so edits for one touch the others. A symptom of low cohesion.</td></tr>
+<tr><td>Refactoring</td><td>Restructuring code without changing its behaviour, to ease future change.</td></tr>
+<tr><td>Technical debt</td><td>Future maintenance cost accrued by taking a quick path now.</td></tr>
+<tr><td>Rule of three</td><td>Refactor on the third occurrence of the same kind of change ("just-in-time abstraction").</td></tr>
+<tr><td>Emergent design</td><td>Abstractions discovered as the system evolves and folded in by refactoring.</td></tr>
+</table>
+</main>
+</body>
+</html>
