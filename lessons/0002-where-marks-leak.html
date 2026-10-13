@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where Marks Leak</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+<nav class="crumbs">CPSC 310 midterm prep · Lesson 2 · <a href="../reference/glossary.html">Glossary</a> · <a href="../reference/coupling-cohesion.html">Coupling &amp; cohesion sheet</a> · <a href="0001-what-must-agree.html">Lesson 1</a></nav>
+
+<h1>Where your marks leak</h1>
+<p class="subtitle">A review of Labs 01–03: the questions you missed, the code that wouldn't compile, and the justifications you skipped</p>
+
+<div class="goal"><strong>The win.</strong> You scored 100% on the labs, but auto-grading hid four habits that will cost marks on a paper exam with no compiler. This lesson fixes them, one tie-breaker rule at a time. It ends with a hand-written refactor plus tests, the format your labs suggest the midterm will use.</div>
+
+<h2>Your scorecard</h2>
+<p>Each row is something you missed on a first attempt, or wrote in a way that would lose marks on paper.</p>
+<table>
+<tr><th>Where</th><th>What happened</th><th>The rule you need</th></tr>
+<tr><td>LAB02.2 ConfigStore</td><td>Picked <b>Type</b>; the key said <b>Value</b></td><td>Rule 1 below</td></tr>
+<tr><td>LAB03.2 Tiers</td><td>Picked <b>Algorithm</b>; the key said <b>Value</b>. Also said "runtime error" when it actually <em>silently returns gold</em></td><td>Rules 1 and 2</td></tr>
+<tr><td>LAB02.12 (B)/(C)</td><td>Said Logic = true. But (C) sits behind <code>if (config.sendAtRiskWarnings)</code></td><td>Rule 4</td></tr>
+<tr><td>LAB02.13 (C)/(D)</td><td>Said Data = false. Both read <code>orders</code></td><td>Rule 3</td></tr>
+<tr><td>LAB03.4 Shipment</td><td>Called the risk "low logical cohesion". It's <b>coupling</b> (connascence of Value). Your refactor used <code>Record&lt;string, number&gt;</code> plus <code>?? 0</code>, which brings the silent bug right back</td><td>Rule 2</td></tr>
+<tr><td>LAB03.8 CheckoutB</td><td>Said controllability = <b>Same</b>. The key said <b>Higher</b></td><td>Rule 6</td></tr>
+<tr><td>LAB03.1, .3, .4 "Justify"</td><td>You answered "algorithm", "getTotal", and "a"</td><td><b>The biggest leak.</b> See the last section</td></tr>
+</table>
+
+<hr>
+
+<h2>Coupling tie-breakers</h2>
+
+<h3>Rule 1: Make the smallest edit that breaks the code, then name what you edited</h3>
+<p>When two kinds of connascence both seem to fit, imagine the <em>one tiny edit</em> that breaks the other side:</p>
+<ul>
+<li>You changed a <b>literal</b> (<code>"timeout"</code> → <code>"timeoutSec"</code>, <code>75</code> → <code>100</code>, <code>"gold"</code> → <code>"Gold"</code>): <b>Value</b>.</li>
+<li>You changed the <b>shape</b> of the data (field renamed, string → number, new required field): <b>Type</b>.</li>
+<li>You changed a <b>step of a computation</b> that someone else repeats (concatenation order, a formula, a separator built in code): <b>Algorithm</b>.</li>
+<li>You swapped <b>order</b> (arguments, array slots, CSV columns): <b>Position</b>.</li>
+</ul>
+<p>ConfigStore: the most likely break is a typo in <code>"timeout"</code>. That's a literal, so the answer is Value. Tiers: three functions share the same <em>string literals</em> <code>"bronze"/"silver"/"gold"</code>, and each function's rule is different, so nothing is computed the same way twice. That's why it's Value, not Algorithm. Algorithm needs the <em>same computation</em> derived independently (as in the PasswordHasher or InvoiceExporter labs).</p>
+
+<h3>Rule 2: A fallback default turns an explicit error back into a silent one</h3>
+<pre><code>// What you wrote in LAB03.4
+const handlingFees: Record&lt;string, number&gt; = { envelope: 1.5, box: 4.0, pallet: 22.0 };
+const handling = handlingFees[shipment.packageType] ?? 0;</code></pre>
+<p>Add <code>"crate"</code> to the type and this <em>still compiles</em>, and crate shipments get handling = 0. That's exactly the silent bug the ticket asked you to prevent. Use the union as the key, with no fallback:</p>
+<pre><code>type PackageType = "envelope" | "box" | "pallet";
+const HANDLING_FEE: Record&lt;PackageType, number&gt; = { envelope: 1.5, box: 4.0, pallet: 22.0 };
+const handling = HANDLING_FEE[shipment.packageType];   // no ?? needed</code></pre>
+<p>Now adding <code>"crate"</code> to <code>PackageType</code> makes the <code>HANDLING_FEE</code> literal fail to compile ("Property 'crate' is missing"). The coupling went from <b>implicit Value</b> to <b>explicit Type</b>. One sentence like that is worth most of the marks in a "justify" box.</p>
+
+<div class="note"><b>Same trap in the Tier lab.</b> The if-chain's last line, <code>return 0.1; // gold</code>, is a <em>catch-all</em>, so a platinum account falls through and silently gets gold's values. It never throws. Whenever you see a catch-all <code>return</code> or <code>else</code>, the honest answer to "how do you find out?" is "silently wrong".</div>
+
+<hr>
+
+<h2>Cohesion tie-breakers</h2>
+<h3>Rule 3: Data means the same source, not the same field</h3>
+<p>If both blocks read the same object or array, they share a <b>Data</b> binding, even when one walks it and the other only calls <code>.length</code>.</p>
+<h3>Rule 4: Logic means the same condition, so any <code>if</code> between the blocks breaks it</h3>
+<p>Ask: "Is there any run of this method where one block executes and the other doesn't?" If yes, the answer is <b>Logic = false</b>. A config flag, a weekday check, or a <code>seatsLeft === 0</code> test all break it.</p>
+<h3>Rule 5: Order means one block writes something the other reads</h3>
+<p>Two blocks that only <em>read</em> the same field can be swapped safely. Order holds only when one block <em>changes</em> state that the other depends on. Also check whether the write actually affects what the other block looks at. In closeOutDay, (C) changed <code>pending</code> → <code>cancelled</code>, but (A) only counted <code>paid</code> and <code>refunded</code>, so Order was false.</p>
+
+<h2>Testability tie-breaker</h2>
+<h3>Rule 6: Splitting a method into smaller ones raises <em>both</em> properties</h3>
+<p><b>Observability</b> goes up because each intermediate result is returned. <b>Controllability</b> goes up because a test can feed each rule <em>exactly</em> the input it wants (<code>shipping(100)</code>) instead of reverse-engineering an item list that produces exactly 100 after discount. "Can I choose what this rule sees?" is a controllability question.</p>
+
+<hr>
+
+<h2>The code you wrote by hand</h2>
+<p>The lab's code editor forgave these mistakes. Paper won't. Each one is in code you submitted.</p>
+<table>
+<tr><th>Lab</th><th>Bug</th><th>Fix</th></tr>
+<tr><td>03.2 Tiers</td><td>No commas between <code>bronze: {…}</code>, <code>silver: {…}</code>, and <code>gold: {…}</code></td><td>Object literal entries need <code>,</code> between them</td></tr>
+<tr><td>03.3 Invoice</td><td>The constructor has no <code>{}</code> body, <code>getTotal</code> uses <code>order.discountRate</code> inside Order, and the braces don't balance</td><td><code>) {}</code>, then <code>this.discountRate</code>. Inside a class, it's always <code>this</code></td></tr>
+<tr><td>03.6 Receipt</td><td><code>const x</code> declared twice in one block</td><td>A redeclaration is a compile error</td></tr>
+<tr><td>03.7 ClockGreeter</td><td>The test recomputes <code>getHours()</code> and copies the if-chain</td><td>The test now has <b>connascence of algorithm with the code under test</b>, so if both are wrong in the same way, the test still passes. It can also flake if the hour ticks over between the two calls. Assert only "one of the three greetings"</td></tr>
+<tr><td>03.3 Invoice</td><td>You moved the total, but <code>InvoicePrinter</code> still reaches into <code>order.customer.address.city</code></td><td>The address-shape change from that question <em>still</em> ripples into 2 classes. Mention it in the justification even if you leave it</td></tr>
+</table>
+
+<hr>
+
+<h2>Practice: tie-breakers on fresh code</h2>
+<p>Commit before you click. <span class="score"></span></p>
+
+<pre><code>function onSignup(user: User) {
+  const welcome = template("welcome", user.name);   // (1)
+  if (user.referrer) {
+    credit(user.referrer, 10);                       // (2)
+  }
+  analytics.track("signup");                         // (3)
+  mailer.send(user.email, welcome);                  // (4)
+}</code></pre>
+
+<div class="quiz" data-answer="None">
+<p class="q">Which bindings do lines (2) and (3) share?</p>
+<div class="opts"><button class="opt">Data, Logic, Order</button><button class="opt">Logic only</button><button class="opt">Data only</button><button class="opt">None</button></div>
+<div class="why"><b>None.</b> They share no data, and swapping them changes nothing. Logic fails because (2) only runs when there's a referrer (Rule 4). This is the exact trap from LAB02.12.</div>
+</div>
+
+<div class="quiz" data-answer="Data, Logic, Order">
+<p class="q">Which bindings do lines (1) and (4) share?</p>
+<div class="opts"><button class="opt">Data, Logic, Order</button><button class="opt">Logic only</button><button class="opt">Data and Logic</button><button class="opt">None</button></div>
+<div class="why"><b>All three.</b> (4) uses <code>welcome</code>, which (1) produced (Data). Both always run (Logic). You can't send the message before you build it (Order).</div>
+</div>
+
+<div class="quiz" data-answer="Data and Logic">
+<p class="q"><code>const active = users.filter(u =&gt; u.active).length; // (A)</code> and then <code>const emails = users.map(u =&gt; u.email); // (B)</code>, with no condition around either. Which bindings hold?</p>
+<div class="opts"><button class="opt">Data, Logic, Order</button><button class="opt">Logic only</button><button class="opt">Data and Logic</button><button class="opt">None</button></div>
+<div class="why"><b>Data and Logic.</b> They read the same source, even though they use different fields (Rule 3), and both always run. Neither writes anything, so you can swap them (Rule 5).</div>
+</div>
+
+<div class="quiz" data-answer="Value">
+<p class="q"><code>SettingsPage</code> does <code>localStorage.setItem("prefs", JSON.stringify(p))</code>. <code>ThemeLoader</code> does <code>JSON.parse(localStorage.getItem("prefs")!) as Prefs</code>. What is the strongest connascence?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why"><b>Value.</b> The smallest edit that breaks it is a typo in the key <code>"prefs"</code> (Rule 1). It's the ConfigStore pattern again. Type is also present, but the cast doesn't check anything.</div>
+</div>
+
+<div class="quiz" data-answer="Silently wrong">
+<p class="q"><code>const LIMIT: Record&lt;string, number&gt; = { free: 5, pro: 50 }; return LIMIT[plan] ?? 5;</code>, where <code>plan: "free" | "pro"</code>. Someone adds <code>"team"</code> to the union. How do you find out?</p>
+<div class="opts"><button class="opt">Compile error</button><button class="opt">Runtime crash</button><button class="opt">Silently wrong</button></div>
+<div class="why"><b>Silently wrong.</b> A <code>string</code> key accepts anything, and <code>?? 5</code> hands team accounts the free limit. This is Rule 2.</div>
+</div>
+
+<div class="quiz" data-answer="Compile error">
+<p class="q">Same as the last question, but the table is typed <code>Record&lt;Plan, number&gt;</code> (where <code>Plan = "free" | "pro"</code>) and there's no <code>??</code>. Now someone adds <code>"team"</code> to <code>Plan</code>.</p>
+<div class="opts"><button class="opt">Compile error</button><button class="opt">Runtime crash</button><button class="opt">Silently wrong</button></div>
+<div class="why"><b>Compile error</b> at the table: <code>"team"</code> is missing. The coupling is explicit now.</div>
+</div>
+
+<div class="quiz" data-answer="Algorithm">
+<p class="q"><code>UserCache.put</code> stores under <code>"user:" + id</code>. In another file, <code>Profile.load</code> reads <code>cache.get("user:" + id)</code>. What is the strongest connascence?</p>
+<div class="opts"><button class="opt">Name</button><button class="opt">Type</button><button class="opt">Value</button><button class="opt">Position</button><button class="opt">Algorithm</button></div>
+<div class="why"><b>Algorithm.</b> Both files <em>build</em> the key the same way, which is the same shape as the building-id example in Lesson 1. Fix: export a <code>userKey(id)</code> function, so the coupling becomes Name.</div>
+</div>
+
+<div class="quiz" data-answer="It repeats the logic it tests">
+<p class="q">A test for <code>ClockGreeter</code> reads <code>new Date().getHours()</code> itself and copies the method's if-chain to predict the expected string. What's the main flaw?</p>
+<div class="opts"><button class="opt">It's too slow</button><button class="opt">It repeats the logic it tests</button><button class="opt">It has too many assertions</button><button class="opt">Nothing; it's ideal</button></div>
+<div class="why">A test that <b>re-derives the answer</b> using the same algorithm is coupled to the code it tests. If the code is wrong, the test is wrong in the same way, and it passes. The real fix is to make the hour controllable, which test doubles (Lesson 3) do.</div>
+</div>
+
+<hr>
+
+<h2>Hand-written drill: refactor and test</h2>
+<p>This is the format your labs suggest the midterm will use. Write it <b>on paper, without an IDE</b>, then type it in here. Aim for 12 minutes.</p>
+<span class="file">parking.ts</span>
+<pre><code>export class Parking {
+  fee(minutes: number, vehicle: "car" | "motorbike" | "truck"): number {
+    let rate = 0;
+    if (vehicle === "car") rate = 3;
+    if (vehicle === "motorbike") rate = 1.5;
+    if (vehicle === "truck") rate = 6;
+    const hours = Math.ceil(minutes / 60);
+    return Math.min(hours * rate, 24);
+  }
+}
+
+export class EntrySign {
+  text(): string { return "Max daily charge: $24"; }
+}</code></pre>
+<p><b>Q.</b> Next sprint adds a <code>"van"</code> vehicle, and the daily cap may change.<br>
+(a) Refactor so that a missing van rate is a <b>compile error</b> and the cap lives in <b>one place</b>.<br>
+(b) Write two mocha/chai tests: one at the <b>cap boundary</b>, and one at the <b>hour-rounding boundary</b>.<br>
+(c) In 2–3 sentences, name the coupling before and after, and say whether it's explicit or implicit.</p>
+
+<div class="free" data-key="lesson2-drill">
+<textarea placeholder="Code first, then the justification."></textarea>
+<button class="reveal">Compare with rubric</button>
+<div class="rubric">
+<p><b>A full-marks answer…</b></p>
+<label><input type="checkbox"> declares <code>type Vehicle = "car" | "motorbike" | "truck"</code> and <code>const RATE: Record&lt;Vehicle, number&gt; = {…}</code>, with commas, and <b>no</b> <code>?? 0</code></label>
+<label><input type="checkbox"> declares <code>const DAILY_CAP = 24</code> and uses it in <b>both</b> <code>fee</code> and <code>EntrySign</code> (<code>`Max daily charge: $${DAILY_CAP}`</code>). Missing the sign is the most common lost mark: the sign's <code>$24</code> is a second copy of the value</label>
+<label><input type="checkbox"> keeps the behaviour identical (it's a refactoring, so <code>Math.ceil</code> and <code>Math.min</code> stay the same)</label>
+<label><input type="checkbox"> includes a cap test, such as <code>expect(new Parking().fee(480, "car")).to.equal(24)</code> (8h × 3 = 24, exactly at the cap) or <code>fee(300, "truck")</code> → 24 (30 capped)</label>
+<label><input type="checkbox"> includes a rounding test, such as <code>fee(60, "car")</code> → 3 and <code>fee(61, "car")</code> → 6. Testing <em>both sides</em> of a boundary is what earns the mark</label>
+<label><input type="checkbox"> (c) names the "before" coupling: <b>Value</b>, implicit, for the rates and for <code>24</code> repeated across two classes (degree 2), and says a new vehicle silently gets rate 0</label>
+<label><input type="checkbox"> (c) names the "after" coupling: <b>Type</b> for the vehicle table and <b>Name</b> for <code>DAILY_CAP</code>, both explicit, so the compiler flags a missing van</label>
+</div>
+</div>
+
+<h2>Exam-style: justify the trade-off</h2>
+<p>This is the box you skipped in LAB03.4. Write it now, in at most 120 words.</p>
+<p><b>Q.</b> A teammate suggests moving all of <code>Parking.fee</code>'s logic onto a <code>Vehicle</code> class instead, with <code>car.fee(minutes)</code>. Compare it with your table-based refactor. Name one way it's better, one cost, and say when you'd do it.</p>
+<div class="free" data-key="lesson2-justify">
+<textarea placeholder="Claim, then reason, then cost, then when."></textarea>
+<button class="reveal">Compare with rubric</button>
+<div class="rubric">
+<label><input type="checkbox"> <b>Better:</b> the rate and the rule live with the data they act on, which raises cohesion. Per-vehicle rules (say, trucks with a different cap) then have a natural home</label>
+<label><input type="checkbox"> <b>Cost:</b> a bigger change, with a new class hierarchy and every caller updated (a high-degree edit). It's also riskier to do without tests in place first</label>
+<label><input type="checkbox"> <b>When:</b> once vehicles differ in <em>behaviour</em>, not just a number. While they only differ by a rate, a table is the smaller, sufficient change (just-in-time design / rule of three)</label>
+<label><input type="checkbox"> uses course vocabulary (cohesion, coupling, degree, explicit) instead of "cleaner" or "better"</label>
+</div>
+</div>
+
+<footer>
+<p><b>Send me</b> both free-response answers in the chat. I'll mark them like a TA would. Then do the Lesson 1 quiz again, cold.</p>
+<p><b>One thing to ask a TA:</b> in LAB03.11 you marked "the teammate's class improves connascence" as TRUE, but your essay argued that both versions are connascence of Name. On the exam, an MC answer that contradicts your essay loses marks, so find out which reading the course intends.</p>
+<p><b>Next:</b> Lesson 3 covers test doubles (<code>04a</code>). LAB03.9 and LAB03.10 left (B), (C), and (D) untestable because of <code>new Date()</code>, the real warehouse, and the real mailer. Test doubles are the course's fix for exactly that.</p>
+<p class="sidenote">Sources: your Lab 01–03 submissions and answer keys (digest at <code>sources/labs-digest.md</code>); course reader, <em>Change Difficulty</em> and <em>Refactoring</em>.</p>
+</footer>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

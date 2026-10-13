@@ -28,6 +28,9 @@
 <tr><td>Technical debt</td><td>Future maintenance cost accrued by taking a quick path now.</td></tr>
 <tr><td>Rule of three</td><td>Refactor on the third occurrence of the same kind of change ("just-in-time abstraction").</td></tr>
 <tr><td>Emergent design</td><td>Abstractions discovered as the system evolves and folded in by refactoring.</td></tr>
+<tr><td>Controllability</td><td>Can a test put the code into the situation it needs: choose its inputs and the state it runs in? Hurt by hidden inputs like <code>new Date()</code>, <code>Math.random()</code>, or a real database.</td></tr>
+<tr><td>Observability</td><td>Can a test see what the code did: its result and its effects? Hurt by <code>void</code> methods, private state, and output that goes to a mailer, a file, or <code>console.log</code>.</td></tr>
+<tr><td>Idempotent</td><td>Making a request twice leaves the system in the same state as making it once (PUT is; POST isn't). It's a claim about state, not about the response.</td></tr>
 </table>
 </main>
 </body>
